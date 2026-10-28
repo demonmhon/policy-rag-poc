@@ -1,12 +1,24 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 const DIMENSION = parseInt(process.env.EMBEDDING_DIMENSION || '768', 10);
+
+interface GeminiEmbeddingResponse {
+  embedding: {
+    values: number[];
+  };
+}
+
+interface OpenAIEmbeddingResponse {
+  data: Array<{
+    embedding: number[];
+  }>;
+}
 
 /**
  * Generates a deterministic semantic-like mock vector for local demo without API keys,
  * or calls Gemini / OpenAI Embedding API when configured.
  */
-async function generateEmbedding(text) {
+export async function generateEmbedding(text: string): Promise<number[]> {
   const provider = (process.env.AI_PROVIDER || 'mock').toLowerCase();
 
   if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
@@ -23,7 +35,7 @@ async function generateEmbedding(text) {
     if (!response.ok) {
       throw new Error(`Gemini Embedding API error: ${await response.text()}`);
     }
-    const data = await response.json();
+    const data = (await response.json()) as GeminiEmbeddingResponse;
     return data.embedding.values;
   }
 
@@ -32,7 +44,7 @@ async function generateEmbedding(text) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: 'text-embedding-3-small',
@@ -43,7 +55,7 @@ async function generateEmbedding(text) {
     if (!response.ok) {
       throw new Error(`OpenAI Embedding API error: ${await response.text()}`);
     }
-    const data = await response.json();
+    const data = (await response.json()) as OpenAIEmbeddingResponse;
     return data.data[0].embedding;
   }
 
@@ -51,8 +63,8 @@ async function generateEmbedding(text) {
   return createFeatureHashVector(text, DIMENSION);
 }
 
-function createFeatureHashVector(text, dim) {
-  const vec = new Array(dim).fill(0);
+export function createFeatureHashVector(text: string, dim: number): number[] {
+  const vec: number[] = new Array(dim).fill(0);
   const tokens = text
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
@@ -60,7 +72,7 @@ function createFeatureHashVector(text, dim) {
     .filter(Boolean);
 
   // Also include character 3-grams for Thai word overlap resilience in mock mode
-  const ngrams = [];
+  const ngrams: string[] = [];
   const compact = text.replace(/\s+/g, '');
   for (let i = 0; i < compact.length - 2; i++) {
     ngrams.push(compact.slice(i, i + 3));
@@ -70,7 +82,7 @@ function createFeatureHashVector(text, dim) {
   for (const token of allFeatures) {
     const hash = crypto.createHash('md5').update(token).digest();
     const idx = hash.readUInt16BE(0) % dim;
-    const sign = (hash[2] % 2 === 0) ? 1 : -1;
+    const sign = hash[2] % 2 === 0 ? 1 : -1;
     vec[idx] += sign * 1.0;
   }
 
@@ -78,5 +90,3 @@ function createFeatureHashVector(text, dim) {
   const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0)) || 1;
   return vec.map((v) => Number((v / norm).toFixed(6)));
 }
-
-module.exports = { generateEmbedding };

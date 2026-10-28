@@ -1,8 +1,56 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 const DIMENSION = parseInt(process.env.EMBEDDING_DIMENSION || '768', 10);
 
-async function generateEmbedding(text) {
+export interface ChunkMetadata {
+  title?: string;
+  department?: string;
+  version?: string;
+  chunk_index?: number;
+  total_chunks?: number;
+  [key: string]: unknown;
+}
+
+export interface RetrievedChunk {
+  id: number | string;
+  document_id: number;
+  chunk_index: number;
+  content: string;
+  metadata?: ChunkMetadata;
+  similarity: number | string;
+}
+
+interface GeminiEmbeddingResponse {
+  embedding: {
+    values: number[];
+  };
+}
+
+interface OpenAIEmbeddingResponse {
+  data: Array<{
+    embedding: number[];
+  }>;
+}
+
+interface GeminiGenerateResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+}
+
+interface OpenAIChatResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+}
+
+export async function generateEmbedding(text: string): Promise<number[]> {
   const provider = (process.env.AI_PROVIDER || 'mock').toLowerCase();
 
   if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
@@ -19,7 +67,7 @@ async function generateEmbedding(text) {
     if (!response.ok) {
       throw new Error(`Gemini Embedding API error: ${await response.text()}`);
     }
-    const data = await response.json();
+    const data = (await response.json()) as GeminiEmbeddingResponse;
     return data.embedding.values;
   }
 
@@ -28,7 +76,7 @@ async function generateEmbedding(text) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: 'text-embedding-3-small',
@@ -39,22 +87,22 @@ async function generateEmbedding(text) {
     if (!response.ok) {
       throw new Error(`OpenAI Embedding API error: ${await response.text()}`);
     }
-    const data = await response.json();
+    const data = (await response.json()) as OpenAIEmbeddingResponse;
     return data.data[0].embedding;
   }
 
   return createFeatureHashVector(text, DIMENSION);
 }
 
-function createFeatureHashVector(text, dim) {
-  const vec = new Array(dim).fill(0);
+export function createFeatureHashVector(text: string, dim: number): number[] {
+  const vec: number[] = new Array(dim).fill(0);
   const tokens = text
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter(Boolean);
 
-  const ngrams = [];
+  const ngrams: string[] = [];
   const compact = text.replace(/\s+/g, '');
   for (let i = 0; i < compact.length - 2; i++) {
     ngrams.push(compact.slice(i, i + 3));
@@ -64,7 +112,7 @@ function createFeatureHashVector(text, dim) {
   for (const token of allFeatures) {
     const hash = crypto.createHash('md5').update(token).digest();
     const idx = hash.readUInt16BE(0) % dim;
-    const sign = (hash[2] % 2 === 0) ? 1 : -1;
+    const sign = hash[2] % 2 === 0 ? 1 : -1;
     vec[idx] += sign * 1.0;
   }
 
@@ -75,7 +123,10 @@ function createFeatureHashVector(text, dim) {
 /**
  * Generates an answer strictly grounded in the retrieved chunks
  */
-async function synthesizeAnswer(question, retrievedChunks) {
+export async function synthesizeAnswer(
+  question: string,
+  retrievedChunks: RetrievedChunk[]
+): Promise<string> {
   const provider = (process.env.AI_PROVIDER || 'mock').toLowerCase();
 
   if (!retrievedChunks || retrievedChunks.length === 0) {
@@ -100,7 +151,7 @@ ${contextBlock}
 ${question}`;
 
   if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -113,7 +164,7 @@ ${question}`;
     if (!response.ok) {
       throw new Error(`Gemini Generate API error: ${await response.text()}`);
     }
-    const data = await response.json();
+    const data = (await response.json()) as GeminiGenerateResponse;
     return data.candidates?.[0]?.content?.parts?.[0]?.text || 'ไม่สามารถสร้างคำตอบได้';
   }
 
@@ -122,7 +173,7 @@ ${question}`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
@@ -136,7 +187,7 @@ ${question}`;
     if (!response.ok) {
       throw new Error(`OpenAI Chat API error: ${await response.text()}`);
     }
-    const data = await response.json();
+    const data = (await response.json()) as OpenAIChatResponse;
     return data.choices?.[0]?.message?.content || 'ไม่สามารถสร้างคำตอบได้';
   }
 
@@ -149,5 +200,3 @@ ${question}`;
     `📌 แหล่งอ้างอิง: ${topChunk.metadata?.title} (Chunk #${topChunk.chunk_index}, Similarity Score: ${Number(topChunk.similarity).toFixed(4)})`
   );
 }
-
-module.exports = { generateEmbedding, synthesizeAnswer };

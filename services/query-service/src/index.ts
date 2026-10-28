@@ -1,8 +1,8 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const { Pool } = require('pg');
-const { generateEmbedding, synthesizeAnswer } = require('./llm');
+import 'dotenv/config';
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import { Pool } from 'pg';
+import { generateEmbedding, synthesizeAnswer, RetrievedChunk } from './llm';
 
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -10,12 +10,23 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 app.use(cors());
 app.use(express.json());
 
-app.get('/health', async (req, res) => {
+interface QueryRequestBody {
+  question?: string;
+  department?: string | null;
+  topK?: number | string;
+}
+
+app.get('/health', async (_req: Request, res: Response) => {
   try {
     await pool.query('SELECT 1');
-    res.json({ status: 'ok', service: 'policy-query-service', aiProvider: process.env.AI_PROVIDER || 'mock' });
+    res.json({
+      status: 'ok',
+      service: 'policy-query-service',
+      aiProvider: process.env.AI_PROVIDER || 'mock'
+    });
   } catch (err) {
-    res.status(500).json({ status: 'error', message: err.message });
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ status: 'error', message });
   }
 });
 
@@ -23,11 +34,12 @@ app.get('/health', async (req, res) => {
  * POST /api/v1/query
  * Body: { "question": "...", "department": "HR", "topK": 3 }
  */
-app.post('/api/v1/query', async (req, res) => {
+app.post('/api/v1/query', async (req: Request, res: Response) => {
   try {
-    const { question, department = null, topK = 3 } = req.body;
+    const { question, department = null, topK = 3 } = req.body as QueryRequestBody;
     if (!question || !question.trim()) {
-      return res.status(400).json({ error: 'Field "question" is required.' });
+      res.status(400).json({ error: 'Field "question" is required.' });
+      return;
     }
 
     const queryEmbedding = await generateEmbedding(question);
@@ -49,10 +61,11 @@ app.post('/api/v1/query', async (req, res) => {
       LIMIT $3::int
     `;
 
-    const { rows: retrievedChunks } = await pool.query(sql, [
+    const parsedTopK = typeof topK === 'number' ? topK : parseInt(String(topK), 10) || 3;
+    const { rows: retrievedChunks } = await pool.query<RetrievedChunk>(sql, [
       vectorLiteral,
       department,
-      Math.min(Math.max(parseInt(topK, 10) || 3, 1), 10)
+      Math.min(Math.max(parsedTopK, 1), 10)
     ]);
 
     const answer = await synthesizeAnswer(question, retrievedChunks);
@@ -75,11 +88,14 @@ app.post('/api/v1/query', async (req, res) => {
     });
   } catch (err) {
     console.error('RAG query error:', err);
-    res.status(500).json({ error: err.message });
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
-  console.log(`[Query Service] Running on port ${PORT} (AI_PROVIDER=${process.env.AI_PROVIDER || 'mock'})`);
+  console.log(
+    `[Query Service] Running on port ${PORT} (AI_PROVIDER=${process.env.AI_PROVIDER || 'mock'})`
+  );
 });

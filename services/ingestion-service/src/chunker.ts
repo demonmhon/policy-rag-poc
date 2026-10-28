@@ -1,14 +1,14 @@
 /**
  * Splits text into overlapping semantic chunks by paragraph/section and character limits.
  */
-function chunkText(text, maxChunkSize = 500, overlapSize = 100) {
+export function chunkText(text: string, maxChunkSize = 500, overlapSize = 100): string[] {
   const normalized = text.replace(/\r\n/g, '\n').trim();
   const paragraphs = normalized.split(/\n\s*\n/);
-  const chunks = [];
-  let currentChunk = "";
+  const chunks: string[] = [];
+  let currentChunk = '';
 
   for (const para of paragraphs) {
-    if ((currentChunk + "\n\n" + para).length <= maxChunkSize) {
+    if ((currentChunk + '\n\n' + para).length <= maxChunkSize) {
       currentChunk = currentChunk ? `${currentChunk}\n\n${para}` : para;
     } else {
       if (currentChunk) {
@@ -22,7 +22,7 @@ function chunkText(text, maxChunkSize = 500, overlapSize = 100) {
           chunks.push(para.slice(start, start + maxChunkSize).trim());
           start += maxChunkSize - overlapSize;
         }
-        currentChunk = "";
+        currentChunk = '';
       }
     }
   }
@@ -33,5 +33,3 @@ function chunkText(text, maxChunkSize = 500, overlapSize = 100) {
 
   return chunks;
 }
-
-module.exports = { chunkText };

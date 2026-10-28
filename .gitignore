@@ -3,8 +3,9 @@
 .env.*
 !.env.example
 
-# Dependencies
+# Dependencies & Build Output
 node_modules/
+dist/
 
 # Logs
 logs/

@@ -1,17 +1,31 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 /**
- * Reproducible Synthetic Thai Bank Policy PDF Generator
- * Renders styled HTML policy documents using Noto Sans Thai / Prompt fonts
+ * Reproducible Synthetic Thai Bank Policy PDF Generator (TypeScript)
+ * Renders styled HTML policy documents using Prompt / Noto Sans Thai fonts
  * into real PDF documents with embedded font subsets via Headless Chrome.
  */
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFileSync } = require('child_process');
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { execFileSync } from 'child_process';
 
 const OUTPUT_DIR = path.join(__dirname, '../sample-policies');
 
-const PDF_POLICIES = [
+export interface PdfPolicySection {
+  heading: string;
+  paragraphs: string[];
+}
+
+export interface PdfPolicyDefinition {
+  filename: string;
+  code: string;
+  department: string;
+  version: string;
+  title: string;
+  sections: PdfPolicySection[];
+}
+
+export const PDF_POLICIES: PdfPolicyDefinition[] = [
   {
     filename: '14_remote_hybrid_work_policy.pdf',
     code: 'HR-POL-2026-03',
@@ -44,16 +58,19 @@ const PDF_POLICIES = [
     code: 'COMP-POL-2026-03',
     department: 'Compliance (ฝ่ายกำกับการปฏิบัติตามกฎเกณฑ์และธรรมาภิบาล)',
     version: '2026.1',
-    title: 'นโยบายการรับ-ให้ของขวัญ ค่าเลี้ยงรับรอง และการต่อต้านการทุจริตคอร์รัปชัน (COMP-POL-2026-03)',
+    title:
+      'นโยบายการรับ-ให้ของขวัญ ค่าเลี้ยงรับรอง และการต่อต้านการทุจริตคอร์รัปชัน (COMP-POL-2026-03)',
     sections: [
       {
-        heading: 'หมวดที่ 1: หลักการงดรับของขวัญและเพดานมูลค่าของที่ระลึก (No Gift Policy & 3,000 THB Limit)',
+        heading:
+          'หมวดที่ 1: หลักการงดรับของขวัญและเพดานมูลค่าของที่ระลึก (No Gift Policy & 3,000 THB Limit)',
         paragraphs: [
           'ธนาคารประกาศเจตนารมณ์ "งดรับ งดให้" ของขวัญและผลประโยชน์ทุกชนิดในทุกเทศกาล (No Gift Policy) เพื่อความโปร่งใสและป้องกันความขัดแย้งทางผลประโยชน์ ทั้งนี้ ในกรณีที่เป็นธรรมเนียมประเพณีทางธุรกิจและพนักงานไม่สามารถปฏิเสธได้ในทันที พนักงานสามารถรับของที่ระลึก สิ่งของตามเทศกาล หรือปฏิทินไดอารี่ ที่มีมูลค่าประเมินไม่เกิน 3,000 บาทต่อชิ้นต่อครั้ง โดยห้ามรับเงินสด เช็คของขวัญ บัตรกำนัลแทนเงินสด (Gift Voucher) ทองคำ หรือสินทรัพย์ดิจิทัล ไม่ว่าจะมีมูลค่าเท่าใดก็ตามโดยเด็ดขาด'
         ]
       },
       {
-        heading: 'หมวดที่ 2: การขึ้นทะเบียนของขวัญและการจัดการสิ่งของที่เกินเกณฑ์ (Gift Registry SLA)',
+        heading:
+          'หมวดที่ 2: การขึ้นทะเบียนของขวัญและการจัดการสิ่งของที่เกินเกณฑ์ (Gift Registry SLA)',
         paragraphs: [
           'ในกรณีที่พนักงานได้รับของขวัญหรือสิ่งของตามเทศกาลที่มีมูลค่าประเมินเกินกว่า 3,000 บาท และไม่สามารถส่งคืนให้แก่ผู้มอบได้ในขณะนั้น พนักงานต้องรายงานต่อผู้บังคับบัญชาต้นสังกัดและทำการบันทึกขึ้นทะเบียนในระบบ Gift & Hospitality Registry ของฝ่ายกำกับการปฏิบัติตามกฎเกณฑ์ (Compliance) ภายใน 5 วันทำการ นับตั้งแต่วันที่ได้รับสิ่งของ พร้อมทั้งส่งมอบของขวัญดังกล่าวให้แก่ฝ่ายทรัพยากรบุคคลเพื่อนำไปใช้เป็นทรัพย์สินส่วนกลางของธนาคารหรือนำไปบริจาคเพื่อการกุศลในนามธนาคาร'
         ]
@@ -74,13 +91,15 @@ const PDF_POLICIES = [
     title: 'ระเบียบการรับและแก้ไขเรื่องร้องเรียนของลูกค้าและกรอบเวลา SLA (OPS-POL-2026-04)',
     sections: [
       {
-        heading: 'หมวดที่ 1: ช่องทางการรับเรื่องร้องเรียนและกรอบเวลาการตอบรับเบื้องต้น (Acknowledgement SLA)',
+        heading:
+          'หมวดที่ 1: ช่องทางการรับเรื่องร้องเรียนและกรอบเวลาการตอบรับเบื้องต้น (Acknowledgement SLA)',
         paragraphs: [
           'ลูกค้าสามารถยื่นเรื่องร้องเรียนผ่านเคาน์เตอร์สาขาธนาคารทุกแห่ง ศูนย์บริการลูกค้าทางโทรศัพท์ (Contact Center โทร 02-000-9999) หรือช่องทางออนไลน์ของธนาคาร พนักงานผู้รับเรื่องร้องเรียนต้องบันทึกรายละเอียดลงในระบบบริหารจัดการเรื่องร้องเรียน (CRM Complaint Management System) ทันทีที่ได้รับแจ้ง และต้องจัดส่งข้อความแจ้งหมายเลขรับเรื่องหรือติดต่อกลับเพื่อยืนยันการรับเรื่องร้องเรียน (Acknowledgement) ให้ลูกค้าทราบภายใน 24 ชั่วโมง (หรือภายใน 1 วันทำการ)'
         ]
       },
       {
-        heading: 'หมวดที่ 2: กรอบเวลาการตรวจสอบและแก้ไขเรื่องร้องเรียนตามระดับความเร่งด่วน (Resolution SLA)',
+        heading:
+          'หมวดที่ 2: กรอบเวลาการตรวจสอบและแก้ไขเรื่องร้องเรียนตามระดับความเร่งด่วน (Resolution SLA)',
         paragraphs: [
           'ธนาคารกำหนดกรอบระยะเวลามาตรฐาน (SLA) ในการตรวจสอบข้อเท็จจริงและแจ้งผลการแก้ไขปัญหาให้ลูกค้าทราบ ดังนี้',
           '1. เรื่องร้องเรียนทั่วไป (เช่น คุณภาพการให้บริการของพนักงานสาขา หรือการสอบถามค่าธรรมเนียมทั่วไป): ต้องดำเนินการตรวจสอบและแจ้งผลการแก้ไขให้ลูกค้าทราบภายใน 7 วันทำการ',
@@ -89,7 +108,8 @@ const PDF_POLICIES = [
         ]
       },
       {
-        heading: 'หมวดที่ 3: การติดตามความคืบหน้าและการรายงานเรื่องร้องเรียนผ่าน ธปท. (Escalation Rules)',
+        heading:
+          'หมวดที่ 3: การติดตามความคืบหน้าและการรายงานเรื่องร้องเรียนผ่าน ธปท. (Escalation Rules)',
         paragraphs: [
           'ในกรณีที่เรื่องร้องเรียนมีความซับซ้อนและไม่สามารถดำเนินการให้แล้วเสร็จภายในกรอบเวลา SLA ที่กำหนดในหมวดที่ 2 หน่วยงานผู้รับผิดชอบต้องแจ้งความคืบหน้าให้ลูกค้าทราบเป็นระยะทุกๆ 5 วันทำการ จนกว่าเรื่องจะยุติ สำหรับกรณีที่เป็นเรื่องร้องเรียนซึ่งส่งผ่านมาจากศูนย์คุ้มครองผู้ใช้บริการทางการเงิน (ศคง.) ธนาคารแห่งประเทศไทย ต้องยกระดับ (Escalate) ให้ฝ่ายกำกับการปฏิบัติตามกฎเกณฑ์ (Compliance) ร่วมตรวจสอบและจัดทำหนังสือชี้แจงส่งต่อ ธปท. ภายในเวลาที่กำหนดอย่างเคร่งครัด'
         ]
@@ -98,7 +118,7 @@ const PDF_POLICIES = [
   }
 ];
 
-function buildHtml(policy) {
+export function buildHtml(policy: PdfPolicyDefinition): string {
   const sectionsHtml = policy.sections
     .map(
       (sec) => `
@@ -217,20 +237,20 @@ function buildHtml(policy) {
 </html>`;
 }
 
-function findChromeBinary() {
+function findChromeBinary(): string {
   const candidates = ['google-chrome', 'chromium', 'chromium-browser'];
   for (const bin of candidates) {
     try {
       const resolved = execFileSync('which', [bin], { encoding: 'utf8' }).trim();
       if (resolved) return resolved;
-    } catch (_) {
+    } catch {
       // continue
     }
   }
   throw new Error('Could not find google-chrome or chromium binary for PDF generation.');
 }
 
-function main() {
+function main(): void {
   if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   }
@@ -268,5 +288,3 @@ function main() {
 if (require.main === module) {
   main();
 }
-
-module.exports = { PDF_POLICIES, buildHtml };
