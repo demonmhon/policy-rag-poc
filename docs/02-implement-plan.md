@@ -6,7 +6,7 @@ This plan breaks down all requirements from [01-requirements.md](./01-requiremen
 
 ## Progress Tracker
 
-- [ ] **Step 1:** Project Foundation, Vector Database Schema & Docker Environment *(Task 9)*
+- [x] **Step 1:** Project Foundation, Vector Database Schema & Docker Environment *(Task 9)*
 - [ ] **Step 2:** Synthetic Thai Bank Policy Corpus (~16 Docs in `.md` & `.pdf`) *(Corpus & Req 10)*
 - [ ] **Step 3:** Document Chunking, PDF Parser & Multi-Provider AI Engine (`mock`, `gemini`, `openai`, `claude`) *(Task 1 & Req 11)*
 - [ ] **Step 4:** Ingestion API (`.md`, `.txt`, `.pdf`) & Idempotent Corpus Seeder *(Task 1 — Service)*
