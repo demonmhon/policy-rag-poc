@@ -151,7 +151,10 @@ export async function generateEmbedding(text: string): Promise<number[]> {
  */
 export function createFeatureHashVector(text: string, dim = DIMENSION): number[] {
   const vec: number[] = new Array(dim).fill(0);
-  const normalized = text.toLowerCase().replace(/,/g, '');
+  const normalized = text
+    .replace(/\[REDACTED_[A-Z_]+\]/gi, ' ')
+    .toLowerCase()
+    .replace(/,/g, '');
   const asciiAndNumTokens = normalized.match(/[a-z0-9]{2,}/g) || [];
 
   const addFeature = (feat: string, weight: number): void => {

@@ -11,7 +11,7 @@ This plan breaks down all requirements from [01-requirements.md](./01-requiremen
 - [x] **Step 3:** Document Chunking, PDF Parser & Multi-Provider AI Engine (`mock`, `gemini`, `openai`, `claude`) _(Task 1 & Req 11)_
 - [x] **Step 4:** Ingestion API (`.md`, `.txt`, `.pdf`) & Idempotent Corpus Seeder _(Task 1 — Service)_
 - [x] **Step 5:** Retrieval, Grounded Generation & `POST /ask` API _(Task 2 & Task 3)_
-- [ ] **Step 6:** Banking-Grade Guardrails (PII Redaction, Prompt Injection & Out-of-Scope Refusal) _(Task 4)_
+- [x] **Step 6:** Banking-Grade Guardrails (PII Redaction, Prompt Injection & Out-of-Scope Refusal) _(Task 4)_
 - [ ] **Step 7:** Observability, Structured Logging & Per-Request Telemetry _(Task 5)_
 - [ ] **Step 8:** API Specification (OpenAPI 3.0) & Postman Collection _(Req 12)_
 - [ ] **Step 9:** Minimal, Trusted Bank Policy Web UI (Design System Palette) _(Req 13)_
