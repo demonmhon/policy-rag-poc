@@ -4,6 +4,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import {
+  estimateTokens,
   generateEmbedding,
   resolveAIProvider,
   resolveEmbeddingProvider,
@@ -17,6 +18,7 @@ import {
   GuardrailAction,
   GuardrailCategory
 } from './guardrails';
+import { logStructured, measureNow, RequestStageTimer, RequestTelemetry } from './telemetry';
 
 export const app = express();
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -136,9 +138,15 @@ app.get('/health', async (_req: Request, res: Response) => {
 
 async function handleAskRequest(req: Request, res: Response): Promise<void> {
   const requestId = crypto.randomUUID();
+  const timer = new RequestStageTimer();
   const validation = validateAskInput(req.body as AskRequestBody);
 
   if (!validation.valid) {
+    const latencyMs = timer.snapshot();
+    logStructured('warn', 'ask_validation_failed', requestId, {
+      errors: validation.errors,
+      latencyMs
+    });
     res.status(400).json({
       requestId,
       status: 'validation_error',
@@ -149,10 +157,14 @@ async function handleAskRequest(req: Request, res: Response): Promise<void> {
   }
 
   const { question: rawQuestion, department, topK } = validation;
+  const aiProvider = resolveAIProvider();
+  const embeddingProvider = resolveEmbeddingProvider();
 
   try {
     // 1. Pre-retrieval input guardrails (PII redaction, Prompt Injection, Customer Data Refusal)
+    const gStart = measureNow();
     const inputGuard = evaluateInputGuardrails(rawQuestion);
+    timer.addGuardrailsTime(measureNow() - gStart);
     const sanitizedQuestion = inputGuard.sanitizedQuestion;
 
     if (inputGuard.action === 'refused') {
@@ -164,23 +176,49 @@ async function handleAskRequest(req: Request, res: Response): Promise<void> {
         piiRedacted: inputGuard.piiRedacted,
         piiTypes: inputGuard.piiTypes
       };
+      const promptTokens = estimateTokens(sanitizedQuestion);
+      const completionTokens = estimateTokens(inputGuard.refusalMessage || '');
+      const telemetry: RequestTelemetry = {
+        latencyMs: timer.snapshot(),
+        tokens: {
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens
+        },
+        provider: aiProvider,
+        model: 'guardrail-deterministic-policy',
+        embeddingProvider,
+        retrievedChunksCount: 0,
+        maxSimilarity: 0
+      };
+
+      logStructured('warn', 'ask_guardrail_refused', requestId, {
+        question: sanitizedQuestion,
+        department,
+        guardrails,
+        telemetry
+      });
 
       res.json({
         requestId,
         status: 'refused',
         question: sanitizedQuestion,
         departmentFilter: department,
-        aiProvider: resolveAIProvider(),
-        embeddingProvider: resolveEmbeddingProvider(),
+        aiProvider,
+        embeddingProvider,
         answer: inputGuard.refusalMessage,
         citations: [],
-        guardrails
+        guardrails,
+        telemetry
       });
       return;
     }
 
     // 2. Embed sanitized query & retrieve chunks from pgvector
+    const embStart = measureNow();
     const queryEmbedding = await generateEmbedding(sanitizedQuestion);
+    timer.setEmbeddingTime(measureNow() - embStart);
+
     const vectorLiteral = `[${queryEmbedding.join(',')}]`;
 
     const sql = `
@@ -199,20 +237,25 @@ async function handleAskRequest(req: Request, res: Response): Promise<void> {
       LIMIT $3::int
     `;
 
+    const retStart = measureNow();
     const { rows: retrievedChunks } = await pool.query<RetrievedChunk>(sql, [
       vectorLiteral,
       department,
       topK
     ]);
+    timer.setRetrievalTime(measureNow() - retStart);
 
-    const maxSimilarity = retrievedChunks.length > 0 ? Number(retrievedChunks[0].similarity) : 0;
+    const maxSimilarity =
+      retrievedChunks.length > 0 ? Number(Number(retrievedChunks[0].similarity).toFixed(4)) : 0;
 
     // 3. Post-retrieval out-of-scope similarity threshold check
+    const postGStart = measureNow();
     const postGuard = evaluatePostRetrievalGuardrails(
       inputGuard,
       maxSimilarity,
       MIN_SIMILARITY_THRESHOLD
     );
+    timer.addGuardrailsTime(measureNow() - postGStart);
 
     if (postGuard.action === 'refused') {
       const guardrails: GuardrailsResponseBlock = {
@@ -223,24 +266,52 @@ async function handleAskRequest(req: Request, res: Response): Promise<void> {
         piiRedacted: postGuard.piiRedacted,
         piiTypes: postGuard.piiTypes
       };
+      const promptTokens = estimateTokens(sanitizedQuestion);
+      const completionTokens = estimateTokens(postGuard.refusalMessage || '');
+      const telemetry: RequestTelemetry = {
+        latencyMs: timer.snapshot(),
+        tokens: {
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens
+        },
+        provider: aiProvider,
+        model: 'guardrail-similarity-threshold',
+        embeddingProvider,
+        retrievedChunksCount: retrievedChunks.length,
+        maxSimilarity
+      };
+
+      logStructured('warn', 'ask_guardrail_refused', requestId, {
+        question: sanitizedQuestion,
+        department,
+        guardrails,
+        telemetry
+      });
 
       res.json({
         requestId,
         status: 'refused',
         question: sanitizedQuestion,
         departmentFilter: department,
-        aiProvider: resolveAIProvider(),
-        embeddingProvider: resolveEmbeddingProvider(),
+        aiProvider,
+        embeddingProvider,
         answer: postGuard.refusalMessage,
         citations: [],
-        guardrails
+        guardrails,
+        telemetry
       });
       return;
     }
 
     // 4. Synthesize grounded answer & run output PII redaction
+    const genStart = measureNow();
     const synthesis = await synthesizeAnswerWithUsage(sanitizedQuestion, retrievedChunks);
+    timer.setGenerationTime(measureNow() - genStart);
+
+    const outGStart = measureNow();
     const outputPii = redactPii(synthesis.answer);
+    timer.addGuardrailsTime(measureNow() - outGStart);
 
     const combinedPiiTypes = Array.from(new Set([...postGuard.piiTypes, ...outputPii.piiTypes]));
     const piiRedacted = postGuard.piiRedacted || outputPii.piiRedacted;
@@ -265,20 +336,47 @@ async function handleAskRequest(req: Request, res: Response): Promise<void> {
       excerpt: chunk.content
     }));
 
+    const telemetry: RequestTelemetry = {
+      latencyMs: timer.snapshot(),
+      tokens: synthesis.usage,
+      provider: synthesis.provider,
+      model: synthesis.model,
+      embeddingProvider,
+      retrievedChunksCount: retrievedChunks.length,
+      maxSimilarity
+    };
+
+    logStructured('info', 'ask_request_completed', requestId, {
+      question: sanitizedQuestion,
+      department,
+      topK,
+      status: 'answered',
+      citationsCount: citations.length,
+      topCitationTitle: citations[0]?.title || null,
+      guardrails,
+      telemetry
+    });
+
     res.json({
       requestId,
       status: 'answered',
       question: sanitizedQuestion,
       departmentFilter: department,
       aiProvider: synthesis.provider,
-      embeddingProvider: resolveEmbeddingProvider(),
+      embeddingProvider,
       answer: outputPii.redactedText,
       citations,
-      guardrails
+      guardrails,
+      telemetry
     });
   } catch (err) {
-    console.error('RAG query error:', err);
     const message = err instanceof Error ? err.message : String(err);
+    logStructured('error', 'ask_request_error', requestId, {
+      question: rawQuestion,
+      department,
+      error: message,
+      latencyMs: timer.snapshot()
+    });
     res.status(500).json({
       requestId,
       status: 'error',
@@ -297,8 +395,11 @@ app.post('/api/v1/query', handleAskRequest);
 const PORT = process.env.PORT || 3002;
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(
-      `[Query Service] Running on port ${PORT} (AI_PROVIDER=${resolveAIProvider()}, EMBEDDING_PROVIDER=${resolveEmbeddingProvider()})`
-    );
+    logStructured('info', 'service_started', 'startup', {
+      port: Number(PORT),
+      aiProvider: resolveAIProvider(),
+      embeddingProvider: resolveEmbeddingProvider(),
+      minSimilarityThreshold: MIN_SIMILARITY_THRESHOLD
+    });
   });
 }
