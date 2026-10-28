@@ -1,29 +1,63 @@
 /**
- * Splits text into overlapping semantic chunks by paragraph/section and character limits.
+ * Splits Thai/English policy text into overlapping semantic chunks by paragraph/section
+ * and character limits.
  */
-export function chunkText(text: string, maxChunkSize = 500, overlapSize = 100): string[] {
+export function chunkText(text: string, maxChunkSize = 800, overlapSize = 120): string[] {
+  if (!text || !text.trim()) {
+    return [];
+  }
+
+  const effectiveMax = Math.max(50, maxChunkSize);
+  const effectiveOverlap = Math.max(0, Math.min(overlapSize, Math.floor(effectiveMax / 2)));
+  const step = Math.max(1, effectiveMax - effectiveOverlap);
+
   const normalized = text.replace(/\r\n/g, '\n').trim();
-  const paragraphs = normalized.split(/\n\s*\n/);
+  const paragraphs = normalized
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
   const chunks: string[] = [];
   let currentChunk = '';
 
+  const splitOversizedBlock = (block: string): void => {
+    let start = 0;
+    while (start < block.length) {
+      const slice = block.slice(start, start + effectiveMax).trim();
+      if (slice) {
+        chunks.push(slice);
+      }
+      if (start + effectiveMax >= block.length) {
+        break;
+      }
+      start += step;
+    }
+  };
+
   for (const para of paragraphs) {
-    if ((currentChunk + '\n\n' + para).length <= maxChunkSize) {
-      currentChunk = currentChunk ? `${currentChunk}\n\n${para}` : para;
-    } else {
-      if (currentChunk) {
-        chunks.push(currentChunk.trim());
-        const overlapText = currentChunk.slice(-overlapSize);
-        currentChunk = `${overlapText}\n\n${para}`;
+    const candidate = currentChunk ? `${currentChunk}\n\n${para}` : para;
+
+    if (candidate.length <= effectiveMax) {
+      currentChunk = candidate;
+      continue;
+    }
+
+    if (currentChunk) {
+      chunks.push(currentChunk.trim());
+      const overlapText = effectiveOverlap > 0 ? currentChunk.slice(-effectiveOverlap).trim() : '';
+      const overlappedCandidate = overlapText ? `${overlapText}\n\n${para}` : para;
+
+      if (overlappedCandidate.length <= effectiveMax) {
+        currentChunk = overlappedCandidate;
+      } else if (para.length <= effectiveMax) {
+        currentChunk = para;
       } else {
-        // Paragraph itself exceeds maxChunkSize
-        let start = 0;
-        while (start < para.length) {
-          chunks.push(para.slice(start, start + maxChunkSize).trim());
-          start += maxChunkSize - overlapSize;
-        }
+        splitOversizedBlock(para);
         currentChunk = '';
       }
+    } else {
+      splitOversizedBlock(para);
+      currentChunk = '';
     }
   }
 

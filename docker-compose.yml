@@ -34,10 +34,12 @@ services:
     environment:
       PORT: 3001
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-policy_rag}
-      AI_PROVIDER: ${AI_PROVIDER:-mock} # mock | gemini | openai
+      AI_PROVIDER: ${AI_PROVIDER:-mock} # mock | gemini | openai | claude
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      EMBEDDING_DIMENSION: 768
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-768}
     ports:
       - "3001:3001"
     depends_on:
@@ -56,10 +58,14 @@ services:
     environment:
       PORT: 3002
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-policy_rag}
-      AI_PROVIDER: ${AI_PROVIDER:-mock} # mock | gemini | openai
+      AI_PROVIDER: ${AI_PROVIDER:-mock} # mock | gemini | openai | claude
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      EMBEDDING_DIMENSION: 768
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-3-5-haiku-latest}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-768}
+      MIN_SIMILARITY_THRESHOLD: ${MIN_SIMILARITY_THRESHOLD:-0.16}
     ports:
       - "3002:3002"
     depends_on:
