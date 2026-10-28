@@ -75,5 +75,24 @@ services:
     volumes:
       - ./services/query-service/src:/app/src
 
+  web-ui:
+    build:
+      context: ./services/web-ui
+      dockerfile: Dockerfile
+    container_name: policy-web-ui
+    environment:
+      PORT: 3000
+      INGESTION_SERVICE_URL: http://ingestion-service:3001
+      QUERY_SERVICE_URL: http://query-service:3002
+    ports:
+      - "3000:3000"
+    depends_on:
+      - ingestion-service
+      - query-service
+    command: pnpm dev
+    volumes:
+      - ./services/web-ui/src:/app/src
+      - ./services/web-ui/public:/app/public
+
 volumes:
   pgdata:

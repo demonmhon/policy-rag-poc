@@ -14,7 +14,7 @@ This plan breaks down all requirements from [01-requirements.md](./01-requiremen
 - [x] **Step 6:** Banking-Grade Guardrails (PII Redaction, Prompt Injection & Out-of-Scope Refusal) _(Task 4)_
 - [x] **Step 7:** Observability, Structured Logging & Per-Request Telemetry _(Task 5)_
 - [x] **Step 8:** API Specification (OpenAPI 3.0) & Postman Collection _(Req 12)_
-- [ ] **Step 9:** Minimal, Trusted Bank Policy Web UI (Design System Palette) _(Req 13)_
+- [x] **Step 9:** Minimal, Trusted Bank Policy Web UI (Design System Palette) _(Req 13)_
 - [ ] **Step 10:** Automated Unit & Integration Test Suite _(Task 6)_
 - [ ] **Step 11:** Evaluation Dataset (10 + 3 Thai Questions) & Automated Eval Harness _(Task 7)_
 - [ ] **Step 12:** Production README, Trade-offs & AI-Assistant Disclosure _(Task 8)_
