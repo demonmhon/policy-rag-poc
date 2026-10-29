@@ -182,7 +182,7 @@ This plan breaks down all requirements from [01-requirements.md](./01-requiremen
 
 ---
 
-### Step 11: Evaluation Dataset (10 + 3 Thai Questions) & Automated Eval Harness
+### Step 11: Evaluation Dataset (10 + 3 Thai Questions) & Automated Eval Harness (DONE)
 
 - **Requirement Covered:** Evaluation Dataset Requirement + Core Task 7 (Eval harness that runs the 10 + 3 questions and prints a groundedness/correctness summary).
 - **Goal:** Run a reproducible benchmark across 10 grounded Thai bank policy questions and 3 adversarial/out-of-scope questions.
