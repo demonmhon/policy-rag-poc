@@ -194,7 +194,7 @@ This plan breaks down all requirements from [01-requirements.md](./01-requiremen
 
 ---
 
-### Step 12: Production README, Trade-offs & AI-Assistant Disclosure
+### Step 12: Production README, Trade-offs & AI-Assistant Disclosure (DONE)
 
 - **Requirement Covered:** Core Task 8 (README documenting design decisions, how to run, trade-offs, what you'd do with more time, and disclosing AI-assistant usage).
 - **Goal:** Complete comprehensive documentation in `README.md`.
