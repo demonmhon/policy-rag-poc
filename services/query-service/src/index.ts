@@ -23,7 +23,18 @@ import { logStructured, measureNow, RequestStageTimer, RequestTelemetry } from '
 export const app = express();
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-const MIN_SIMILARITY_THRESHOLD = parseFloat(process.env.MIN_SIMILARITY_THRESHOLD || '0.16');
+function getMinSimilarityThreshold(): number {
+  const embProvider = resolveEmbeddingProvider();
+  const custom = process.env.MIN_SIMILARITY_THRESHOLD?.trim();
+  if (custom && !isNaN(Number(custom))) {
+    const val = parseFloat(custom);
+    if (embProvider !== 'mock' && val <= 0.2) {
+      return 0.4;
+    }
+    return val;
+  }
+  return embProvider === 'mock' ? 0.16 : 0.4;
+}
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -249,12 +260,9 @@ async function handleAskRequest(req: Request, res: Response): Promise<void> {
       retrievedChunks.length > 0 ? Number(Number(retrievedChunks[0].similarity).toFixed(4)) : 0;
 
     // 3. Post-retrieval out-of-scope similarity threshold check
+    const minThreshold = getMinSimilarityThreshold();
     const postGStart = measureNow();
-    const postGuard = evaluatePostRetrievalGuardrails(
-      inputGuard,
-      maxSimilarity,
-      MIN_SIMILARITY_THRESHOLD
-    );
+    const postGuard = evaluatePostRetrievalGuardrails(inputGuard, maxSimilarity, minThreshold);
     timer.addGuardrailsTime(measureNow() - postGStart);
 
     if (postGuard.action === 'refused') {
@@ -399,7 +407,7 @@ if (require.main === module) {
       port: Number(PORT),
       aiProvider: resolveAIProvider(),
       embeddingProvider: resolveEmbeddingProvider(),
-      minSimilarityThreshold: MIN_SIMILARITY_THRESHOLD
+      minSimilarityThreshold: getMinSimilarityThreshold()
     });
   });
 }

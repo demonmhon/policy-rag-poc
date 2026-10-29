@@ -6,6 +6,7 @@
   "scripts": {
     "format": "prettier --write \"services/**/*.ts\" \"scripts/**/*.ts\" \"*.json\" \"docs/**/*.md\"",
     "format:check": "prettier --check \"services/**/*.ts\" \"scripts/**/*.ts\"",
+    "test": "pnpm --dir services/ingestion-service test && pnpm --dir services/query-service test",
     "generate:pdfs": "tsx scripts/generate-sample-pdfs.ts"
   },
   "devDependencies": {

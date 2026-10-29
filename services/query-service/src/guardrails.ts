@@ -44,7 +44,7 @@ const CUSTOMER_DATA_PATTERNS: RegExp[] = [
   /what\s+is\s+(?:customer|client|user|account)\s+[#a-z0-9_-]*\s*(?:'s\s+)?(?:balance|transactions?|salary|statement|password|pin)/i,
   /(?:check|show|get|lookup|tell\s+me)\s+(?:the\s+)?(?:account\s+balance|bank\s+balance|transaction\s+history)\s+(?:of|for)\s+(?:customer|account|client)/i,
   /(?:ลูกค้า|บัญชี|คุณ)\s*(?:หมายเลข|รหัส|เลขที่|ชื่อ)?\s*[a-z0-9ก-๙_-]*\s*(?:มีเงินคงเหลือ|มียอดเงิน|ยอดคงเหลือ|มีเงินในบัญชี|เหลือกี่บาท|โอนเงินให้ใคร)/i,
-  /(?:ขอดู|เช็ค|ตรวจสอบ|บอก)\s*(?:ยอดเงินคงเหลือ|ยอดเงินในบัญชี|รายการเดินบัญชี|statement|รหัสผ่าน|pin)\s*(?:ของลูกค้า|ของบัญชี|ลูกค้า)/i
+  /(?:ขอดู|เช็ค|ตรวจสอบ|บอก|ขอทราบ)\s*(?:ยอดเงิน(?:คงเหลือ)?(?:ในบัญชี)?|เงินคงเหลือ|ยอดคงเหลือ|รายการเดินบัญชี|statement|รหัสผ่าน|pin)\s*(?:ของลูกค้า|ของบัญชี|ลูกค้า|ในบัญชี)?/i
 ];
 
 /**
